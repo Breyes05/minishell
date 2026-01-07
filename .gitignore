@@ -1,0 +1,21 @@
+# Compiled binaries
+*.out
+*.exe
+*.o
+*.a
+*.so
+scheduler
+myshell
+minishell
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
+
+# Debug files
+*.dSYM/
+
+# Temporary files
+*~
