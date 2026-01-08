@@ -1,51 +1,76 @@
-#include <stdio.h>
+#include <sys/wait.h>
+#include <unistd.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include "tokenizer.h"
 
-int main(int argc, char **argv)
-{
-    // load config files
+int shell_cd(char **args);
+int shell_help(char **args);
+int shell_pwd(char **args);
+int shell_echo(char **args);
+int shell_exit(char **args);
 
-    // run command loop
-    void lsh_loop(void)
-    {
-        char *line;
-        char **args;
-        int status;
-        do {
-            printf("> ");
-            line = read_line();
-            args = tokenizer(line);
-            status = lsh_execute(args);
+char *builtin_str_list[] = {
+    "cd",
+    "help",
+    "pwd",
+    "echo",
+    "exit"
+};
 
-            free(line);
-            free(args);
-        } while (status);
+int (*builtin_func[]) (char **) = {
+    &shell_cd,
+    &shell_help,
+    &shell_pwd,
+    &shell_echo,
+    &shell_exit
+};
 
-    }
-    // Perform any actions to shutdown and clean memory
-
-    // Return
-
+int num_builtins() {
+    return sizeof(builtin_str_list) / sizeof(char *);
 }
-// Initialize: Read and executve config files
-// Interpret: Reads commands from stdin and executes
-// Terminate: After commands execute, shuts down, frees up memory, terminates
 
-char *read_line(void)
-{
-    char *line = NULL;
-    ssize_t buffer_size = 0;
-
-    if (getline(&line, &buffer_size, stdin) == -1) {
-        if (feof(stdin)) {
-            exit(EXIT_SUCCESS);
-        } else {
-            perror("readline");
-            exit(EXIT_FAILURE);
+int shell_cd(char **args) {
+    if (args[1] == NULL) {
+        fprintf(stderr, "lsh: expected argument to \"cd\"\n");
+    } else {
+        if (chdir(args[1]) != 0) {
+        perror("lsh");
         }
     }
+    return 1;
+}
 
-    // start with a block of space, and realloc if more space is used
+int shell_help(char **args) {
+    int i;
+    printf("Brendan's Shell\n");
+    printf("Built-in commands:\n");
+    for (i = 0; i < num_builtins(); i++) {
+        printf("  %s\n", builtin_str_list[i]);
+    }
+    return 1;
+}
+
+int shell_pwd(char **args) {
+    char cwd[1024];
+    if (getcwd(cwd, sizeof(cwd)) != NULL) {
+        printf("%s\n", cwd);
+    }
+    return 1;
+}
+
+int shell_echo(char **args) {
+    for (int i = 1; args[i]; i++) {
+        printf("%s ", args[i]);
+    }
+    printf("\n");
+    return 1;
+}
+
+int shell_exit(char **args)
+{
+    return 0;
 }
 
 int launch(char **args)
@@ -74,3 +99,56 @@ int launch(char **args)
 // > 0 = parent
     // waits for chld process to finish
 // < 0 = failed
+
+int execute(char **args)
+{
+    int i;
+    if (args[0] == NULL) {
+        return 1;
+    }
+
+    for (i = 0; i < num_builtins(); i++) {
+        if (strcmp(args[0], builtin_str_list[i]) == 0 ) {
+            return (*builtin_func[i])(args);
+        }
+    }
+    return launch(args);
+}
+// checks for builtin commands else launch
+
+char *read_line(void)
+{
+    char *line = NULL;
+    ssize_t buffer_size = 0;
+
+    if (getline(&line, &buffer_size, stdin) == -1) {
+        if (feof(stdin)) {
+            exit(EXIT_SUCCESS);
+        } else {
+            perror("readline");
+            exit(EXIT_FAILURE);
+        }
+    }
+}
+
+void shell_loop(void)
+{
+        char *line;
+        char **args;
+        int status;
+        do {
+            printf("> ");
+            line = read_line();
+            args = tokenizer(line);
+            status = execute(args);
+            free(line);
+            free(args);
+        } while (status);
+}
+
+int main(int argc, char **argv)
+{
+    // run command loop
+    shell_loop();
+    return EXIT_SUCCESS;
+}
